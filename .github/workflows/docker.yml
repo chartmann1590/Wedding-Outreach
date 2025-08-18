@@ -112,6 +112,7 @@ jobs:
         image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
         
     - name: Scan image with Grype
+      id: scan
       uses: anchore/scan-action@v3
       with:
         image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
