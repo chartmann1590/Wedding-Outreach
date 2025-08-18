@@ -42,11 +42,19 @@ jobs:
         # Wait for startup
         sleep 10
         
+        # Check container status
+        docker ps -a
+        
+        # Show container logs for debugging
+        echo "=== Container Logs ==="
+        docker logs test-app
+        echo "======================"
+        
         # Test health endpoint
-        curl -f http://localhost:5000/ || exit 1
+        curl -f http://localhost:5000/ || (docker logs test-app && exit 1)
         
         # Test basic functionality
-        curl -f http://localhost:5000/settings || exit 1
+        curl -f http://localhost:5000/settings || (docker logs test-app && exit 1)
         
         # Cleanup
         docker stop test-app
