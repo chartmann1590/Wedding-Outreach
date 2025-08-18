@@ -1,8 +1,8 @@
-flask==3.0.0
-flask-sqlalchemy==3.1.1
-sqlalchemy==2.0.25
-pandas==2.1.4
-rapidfuzz==3.6.1
-apscheduler==3.10.4
-python-dotenv==1.0.0
-requests==2.31.0
+flask
+flask-sqlalchemy
+sqlalchemy
+pandas
+rapidfuzz
+apscheduler
+python-dotenv
+requests
