@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Wedding Outreach{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
+        <a href="{{ url_for('settings') }}" class="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+            Upload CSV
+        </a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <div class="text-sm font-medium text-gray-500 mb-1">Total Guests</div>
+            <div class="text-3xl font-bold text-gray-900">{{ stats.total }}</div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <div class="text-sm font-medium text-gray-500 mb-1">With Address</div>
+            <div class="text-3xl font-bold text-green-600">{{ stats.with_address }}</div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <div class="text-sm font-medium text-gray-500 mb-1">Need Address</div>
+            <div class="text-3xl font-bold text-yellow-600">{{ stats.needs_address }}</div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <div class="text-sm font-medium text-gray-500 mb-1">Requested</div>
+            <div class="text-3xl font-bold text-blue-600">{{ stats.requested }}</div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <div class="text-sm font-medium text-gray-500 mb-1">Not on FB</div>
+            <div class="text-3xl font-bold text-gray-600">{{ stats.not_on_fb }}</div>
+        </div>
+    </div>
+
+    <div class="bg-white p-6 rounded-lg shadow-sm border">
+        <h2 class="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+        <div class="space-y-2">
+            <a href="{{ url_for('review', status='needs_address') }}" 
+               class="block p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="font-medium text-gray-900">Review guests needing addresses</div>
+                <div class="text-sm text-gray-500">{{ stats.needs_address }} guests need their addresses requested</div>
+            </a>
+            
+            <a href="{{ url_for('review', status='requested') }}" 
+               class="block p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="font-medium text-gray-900">Follow up on requested addresses</div>
+                <div class="text-sm text-gray-500">{{ stats.requested }} guests have been contacted</div>
+            </a>
+
+            <a href="{{ url_for('settings') }}" 
+               class="block p-3 rounded-md border border-gray-200 hover:bg-gray-50 transition-colors">
+                <div class="font-medium text-gray-900">Upload Guest List & Configure Ollama</div>
+                <div class="text-sm text-gray-500">Upload your CSV file and configure Ollama settings</div>
+            </a>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

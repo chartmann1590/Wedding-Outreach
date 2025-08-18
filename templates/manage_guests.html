@@ -1,0 +1,422 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Guests - Wedding Outreach{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-2xl font-bold text-gray-900">Manage Guests</h1>
+        <div class="flex gap-3">
+            <button onclick="showAddGuestModal()" 
+                    class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                + Add Guest
+            </button>
+            <span class="text-sm text-gray-500">
+                Page {{ pagination.page }} of {{ pagination.pages }} ({{ pagination.total }} total guests)
+            </span>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-white p-4 rounded-lg shadow-sm border">
+        <form method="GET" class="flex flex-wrap gap-4 items-end">
+            <div>
+                <label for="status" class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+                <select name="status" id="status" 
+                        class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    <option value="all" {{ 'selected' if current_filter == 'all' else '' }}>All Guests</option>
+                    <option value="needs_address" {{ 'selected' if current_filter == 'needs_address' else '' }}>Needs Address</option>
+                    <option value="has_address" {{ 'selected' if current_filter == 'has_address' else '' }}>Has Address</option>
+                    <option value="requested" {{ 'selected' if current_filter == 'requested' else '' }}>Address Requested</option>
+                    <option value="not_on_fb" {{ 'selected' if current_filter == 'not_on_fb' else '' }}>Not on Facebook</option>
+                </select>
+            </div>
+
+            <div>
+                <label for="search" class="block text-sm font-medium text-gray-700 mb-1">Search</label>
+                <input type="text" 
+                       name="search" 
+                       id="search" 
+                       value="{{ search_query }}"
+                       placeholder="Search by name..."
+                       class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+            </div>
+
+            <button type="submit" 
+                    class="bg-primary text-white px-4 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                Filter
+            </button>
+        </form>
+    </div>
+
+    <!-- Editable Spreadsheet -->
+    <div class="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Address</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Notes</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Facebook</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for guest in guests %}
+                    <tr data-guest-id="{{ guest.id }}" class="hover:bg-gray-50">
+                        <!-- Name -->
+                        <td class="px-4 py-3">
+                            <div class="editable-cell" data-field="name" data-guest-id="{{ guest.id }}">
+                                <span class="cell-display">{{ guest.name }}</span>
+                                <input type="text" class="cell-input hidden w-full px-2 py-1 border rounded" value="{{ guest.name }}">
+                            </div>
+                        </td>
+                        
+                        <!-- Address -->
+                        <td class="px-4 py-3">
+                            <div class="editable-cell" data-field="address" data-guest-id="{{ guest.id }}">
+                                <span class="cell-display {{ 'text-gray-400 italic' if not guest.address else '' }}">
+                                    {{ guest.address or 'No address' }}
+                                </span>
+                                <textarea class="cell-input hidden w-full px-2 py-1 border rounded" rows="2">{{ guest.address or '' }}</textarea>
+                            </div>
+                        </td>
+                        
+                        <!-- Notes -->
+                        <td class="px-4 py-3">
+                            <div class="editable-cell" data-field="note" data-guest-id="{{ guest.id }}">
+                                <span class="cell-display {{ 'text-gray-400 italic' if not guest.note else '' }}">
+                                    {{ guest.note or 'No notes' }}
+                                </span>
+                                <textarea class="cell-input hidden w-full px-2 py-1 border rounded" rows="2">{{ guest.note or '' }}</textarea>
+                            </div>
+                        </td>
+                        
+                        <!-- Facebook -->
+                        <td class="px-4 py-3">
+                            <div class="editable-cell" data-field="facebook_profile" data-guest-id="{{ guest.id }}">
+                                <span class="cell-display {{ 'text-gray-400 italic' if not guest.facebook_profile else '' }}">
+                                    {{ guest.facebook_profile or 'No profile' }}
+                                </span>
+                                <input type="text" class="cell-input hidden w-full px-2 py-1 border rounded" value="{{ guest.facebook_profile or '' }}">
+                            </div>
+                        </td>
+                        
+                        <!-- Status -->
+                        <td class="px-4 py-3">
+                            <select class="status-select text-xs px-2 py-1 border rounded" data-guest-id="{{ guest.id }}">
+                                <option value="needs_address" {{ 'selected' if guest.status == 'needs_address' else '' }}>Needs Address</option>
+                                <option value="has_address" {{ 'selected' if guest.status == 'has_address' else '' }}>Has Address</option>
+                                <option value="requested" {{ 'selected' if guest.status == 'requested' else '' }}>Requested</option>
+                                <option value="not_on_fb" {{ 'selected' if guest.status == 'not_on_fb' else '' }}>Not on FB</option>
+                            </select>
+                        </td>
+                        
+                        <!-- Actions -->
+                        <td class="px-4 py-3">
+                            <button onclick="deleteGuest({{ guest.id }}, '{{ guest.name }}')" 
+                                    class="text-red-600 hover:text-red-800 text-sm">
+                                Delete
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+                            No guests found. <a href="{{ url_for('manage_guests') }}" class="text-primary hover:underline">View all guests</a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    
+    <!-- Pagination -->
+    {% if pagination.pages > 1 %}
+    <div class="flex justify-center items-center space-x-4 bg-white p-4 rounded-lg shadow-sm border">
+        <!-- Previous Page -->
+        {% if pagination.has_prev %}
+        <a href="{{ url_for('manage_guests', page=pagination.prev_num, status=current_filter, search=search_query) }}" 
+           class="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium text-gray-700 transition-colors">
+            Previous
+        </a>
+        {% else %}
+        <span class="bg-gray-50 px-3 py-2 rounded-md text-sm font-medium text-gray-400 cursor-not-allowed">
+            Previous
+        </span>
+        {% endif %}
+        
+        <!-- Page Numbers -->
+        <div class="flex space-x-1">
+            {% for page_num in pagination.iter_pages() %}
+                {% if page_num %}
+                    {% if page_num != pagination.page %}
+                    <a href="{{ url_for('manage_guests', page=page_num, status=current_filter, search=search_query) }}" 
+                       class="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium text-gray-700 transition-colors">
+                        {{ page_num }}
+                    </a>
+                    {% else %}
+                    <span class="bg-primary text-white px-3 py-2 rounded-md text-sm font-medium">
+                        {{ page_num }}
+                    </span>
+                    {% endif %}
+                {% else %}
+                <span class="px-3 py-2 text-sm text-gray-400">…</span>
+                {% endif %}
+            {% endfor %}
+        </div>
+        
+        <!-- Next Page -->
+        {% if pagination.has_next %}
+        <a href="{{ url_for('manage_guests', page=pagination.next_num, status=current_filter, search=search_query) }}" 
+           class="bg-gray-100 hover:bg-gray-200 px-3 py-2 rounded-md text-sm font-medium text-gray-700 transition-colors">
+            Next
+        </a>
+        {% else %}
+        <span class="bg-gray-50 px-3 py-2 rounded-md text-sm font-medium text-gray-400 cursor-not-allowed">
+            Next
+        </span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+
+<!-- Add Guest Modal -->
+<div id="addGuestModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+    <div class="flex items-center justify-center min-h-screen p-4">
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <h3 class="text-lg font-medium text-gray-900 mb-4">Add New Guest</h3>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+                    <input type="text" id="newGuestName" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Guest Name">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Address</label>
+                    <textarea id="newGuestAddress" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2" placeholder="Mailing Address"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <textarea id="newGuestNote" class="w-full px-3 py-2 border border-gray-300 rounded-md" rows="2" placeholder="Notes"></textarea>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Facebook Profile</label>
+                    <input type="text" id="newGuestFacebook" class="w-full px-3 py-2 border border-gray-300 rounded-md" placeholder="Facebook URL or username">
+                </div>
+            </div>
+            
+            <div class="flex justify-end gap-3 mt-6">
+                <button onclick="hideAddGuestModal()" class="px-4 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50">
+                    Cancel
+                </button>
+                <button onclick="addGuest()" class="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700">
+                    Add Guest
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Make cells editable
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle editable cells
+    document.querySelectorAll('.editable-cell').forEach(cell => {
+        const display = cell.querySelector('.cell-display');
+        const input = cell.querySelector('.cell-input');
+        
+        display.addEventListener('click', function() {
+            display.classList.add('hidden');
+            input.classList.remove('hidden');
+            input.focus();
+            if (input.type === 'text') {
+                input.select();
+            }
+        });
+        
+        input.addEventListener('blur', function() {
+            saveCell(cell);
+        });
+        
+        input.addEventListener('keydown', function(e) {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                saveCell(cell);
+            }
+            if (e.key === 'Escape') {
+                cancelEdit(cell);
+            }
+        });
+    });
+    
+    // Handle status dropdowns
+    document.querySelectorAll('.status-select').forEach(select => {
+        select.addEventListener('change', function() {
+            updateGuestField(this.dataset.guestId, 'status', this.value);
+        });
+    });
+});
+
+function saveCell(cell) {
+    const display = cell.querySelector('.cell-display');
+    const input = cell.querySelector('.cell-input');
+    const guestId = cell.dataset.guestId;
+    const field = cell.dataset.field;
+    const newValue = input.value.trim();
+    
+    updateGuestField(guestId, field, newValue);
+}
+
+function cancelEdit(cell) {
+    const display = cell.querySelector('.cell-display');
+    const input = cell.querySelector('.cell-input');
+    
+    input.classList.add('hidden');
+    display.classList.remove('hidden');
+}
+
+async function updateGuestField(guestId, field, value) {
+    try {
+        const response = await fetch(`/update-guest/${guestId}`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({field: field, value: value})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Update the display
+            const cell = document.querySelector(`[data-guest-id="${guestId}"][data-field="${field}"]`);
+            if (cell) {
+                const display = cell.querySelector('.cell-display');
+                const input = cell.querySelector('.cell-input');
+                
+                if (value) {
+                    display.textContent = value;
+                    display.classList.remove('text-gray-400', 'italic');
+                } else {
+                    const placeholder = field === 'address' ? 'No address' : 
+                                     field === 'note' ? 'No notes' : 
+                                     field === 'facebook_profile' ? 'No profile' : '';
+                    display.textContent = placeholder;
+                    display.classList.add('text-gray-400', 'italic');
+                }
+                
+                input.classList.add('hidden');
+                display.classList.remove('hidden');
+            }
+            
+            // Update status if it changed
+            if (data.new_status) {
+                const statusSelect = document.querySelector(`select[data-guest-id="${guestId}"]`);
+                if (statusSelect && statusSelect.value !== data.new_status) {
+                    statusSelect.value = data.new_status;
+                }
+            }
+            
+            // Show brief success indicator
+            showTempMessage('Saved', 'success');
+        } else {
+            alert('Error updating guest: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error updating guest');
+    }
+}
+
+function showAddGuestModal() {
+    document.getElementById('addGuestModal').classList.remove('hidden');
+}
+
+function hideAddGuestModal() {
+    document.getElementById('addGuestModal').classList.add('hidden');
+    // Clear form
+    document.getElementById('newGuestName').value = '';
+    document.getElementById('newGuestAddress').value = '';
+    document.getElementById('newGuestNote').value = '';
+    document.getElementById('newGuestFacebook').value = '';
+}
+
+async function addGuest() {
+    const name = document.getElementById('newGuestName').value.trim();
+    const address = document.getElementById('newGuestAddress').value.trim();
+    const note = document.getElementById('newGuestNote').value.trim();
+    const facebook = document.getElementById('newGuestFacebook').value.trim();
+    
+    if (!name) {
+        alert('Name is required');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/add-guest', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                name: name,
+                address: address,
+                note: note,
+                facebook_profile: facebook
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            hideAddGuestModal();
+            location.reload(); // Refresh to show new guest
+        } else {
+            alert('Error adding guest: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error adding guest');
+    }
+}
+
+async function deleteGuest(guestId, guestName) {
+    if (!confirm(`Are you sure you want to delete ${guestName}?`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/delete-guest/${guestId}`, {
+            method: 'POST'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Remove the row
+            const row = document.querySelector(`tr[data-guest-id="${guestId}"]`);
+            if (row) {
+                row.remove();
+            }
+            showTempMessage('Guest deleted', 'success');
+        } else {
+            alert('Error deleting guest: ' + data.error);
+        }
+    } catch (error) {
+        alert('Error deleting guest');
+    }
+}
+
+function showTempMessage(message, type) {
+    const toast = document.createElement('div');
+    toast.textContent = message;
+    toast.className = `fixed top-4 right-4 px-4 py-2 rounded shadow-lg z-50 ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-600 text-white'}`;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 2000);
+}
+</script>
+{% endblock %}

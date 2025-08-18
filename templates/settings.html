@@ -1,0 +1,438 @@
+{% extends "base.html" %}
+
+{% block title %}Settings - Wedding Outreach{% endblock %}
+
+{% block content %}
+<div class="space-y-6">
+    <h1 class="text-2xl font-bold text-gray-900">Settings</h1>
+
+    <form method="POST" class="space-y-6">
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Guest List Upload</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="csv_file" class="block text-sm font-medium text-gray-700 mb-2">
+                        Upload CSV File
+                    </label>
+                    <div class="flex items-center justify-center w-full">
+                        <label for="csv_file" class="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100">
+                            <div class="flex flex-col items-center justify-center pt-5 pb-6">
+                                <svg class="w-8 h-8 mb-4 text-gray-500" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 16">
+                                    <path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/>
+                                </svg>
+                                <p class="mb-2 text-sm text-gray-500"><span class="font-semibold">Click to upload</span> your CSV file</p>
+                                <p class="text-xs text-gray-500">CSV files only (MAX. 16MB)</p>
+                            </div>
+                            <input id="csv_file" type="file" accept=".csv" class="hidden" onchange="uploadCSV(this)" />
+                        </label>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Upload a CSV file with your guest list. The file will be processed immediately.
+                    </p>
+                    <div id="upload-status" class="mt-2 hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Ollama Configuration</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="ollama_base" class="block text-sm font-medium text-gray-700 mb-2">
+                        Ollama Base URL
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="url" 
+                               id="ollama_base" 
+                               name="ollama_base" 
+                               value="{{ setting.ollama_base if setting else 'http://localhost:11434' }}"
+                               placeholder="http://localhost:11434"
+                               class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <button type="button" 
+                                onclick="testOllamaConnection()" 
+                                class="bg-secondary text-white px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors">
+                            Test Connection
+                        </button>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Base URL for your Ollama server (include port if not default).
+                    </p>
+                    <div id="connection-status" class="mt-2 hidden"></div>
+                </div>
+
+                <div>
+                    <label for="ollama_model" class="block text-sm font-medium text-gray-700 mb-2">
+                        Ollama Model
+                    </label>
+                    <div class="flex gap-2">
+                        <select id="ollama_model" 
+                                name="ollama_model" 
+                                class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="{{ setting.ollama_model if setting else 'llama2' }}">
+                                {{ setting.ollama_model if setting else 'llama2' }}
+                            </option>
+                        </select>
+                        <button type="button" 
+                                onclick="loadAvailableModels()" 
+                                class="bg-secondary text-white px-4 py-2 rounded-md hover:bg-secondary/90 transition-colors">
+                            Load Models
+                        </button>
+                        <button type="button" 
+                                onclick="testSelectedModel()" 
+                                class="bg-green-600 text-white px-4 py-2 rounded-md hover:bg-green-700 transition-colors">
+                            Test Model
+                        </button>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Model name to use for generating messages. Click "Load Models" to see available options.
+                    </p>
+                    <div id="model-status" class="mt-2 hidden"></div>
+                </div>
+
+                <div id="model-management" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">
+                        Pull New Model
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" 
+                               id="new_model_name" 
+                               placeholder="e.g., llama2, mistral, codellama"
+                               class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <button type="button" 
+                                onclick="pullNewModel()" 
+                                class="bg-orange-600 text-white px-4 py-2 rounded-md hover:bg-orange-700 transition-colors">
+                            Pull Model
+                        </button>
+                    </div>
+                    <p class="mt-1 text-sm text-gray-500">
+                        Download a new model from Ollama. Popular options: llama2, mistral, codellama, gemma
+                    </p>
+                    <div id="pull-status" class="mt-2 hidden"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-sm border">
+            <h2 class="text-lg font-medium text-gray-900 mb-4">Wedding Details</h2>
+            <p class="text-sm text-gray-600 mb-4">
+                Configure your wedding details to personalize the messages sent to guests.
+            </p>
+            
+            <div class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="bride_name" class="block text-sm font-medium text-gray-700 mb-2">
+                            Bride's Name
+                        </label>
+                        <input type="text" 
+                               id="bride_name" 
+                               name="bride_name" 
+                               value="{{ setting.bride_name if setting else '' }}"
+                               placeholder="Jessica"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+
+                    <div>
+                        <label for="groom_name" class="block text-sm font-medium text-gray-700 mb-2">
+                            Groom's Name
+                        </label>
+                        <input type="text" 
+                               id="groom_name" 
+                               name="groom_name" 
+                               value="{{ setting.groom_name if setting else '' }}"
+                               placeholder="Charles"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="wedding_date" class="block text-sm font-medium text-gray-700 mb-2">
+                            Wedding Date
+                        </label>
+                        <input type="text" 
+                               id="wedding_date" 
+                               name="wedding_date" 
+                               value="{{ setting.wedding_date if setting else '' }}"
+                               placeholder="June 15, 2024"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                        <p class="mt-1 text-sm text-gray-500">
+                            Enter the date in any format you prefer (e.g., "June 15th" or "Summer 2024")
+                        </p>
+                    </div>
+
+                    <div>
+                        <label for="message_sender" class="block text-sm font-medium text-gray-700 mb-2">
+                            Message Sender
+                        </label>
+                        <select id="message_sender" 
+                                name="message_sender" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent">
+                            <option value="both" {{ 'selected' if setting and setting.message_sender == 'both' else '' }}>
+                                Both (<span id="sender_both_text">{{ setting.groom_name or 'Groom' }} & {{ setting.bride_name or 'Bride' }}</span>)
+                            </option>
+                            <option value="bride" {{ 'selected' if setting and setting.message_sender == 'bride' else '' }}>
+                                <span id="sender_bride_text">{{ setting.bride_name or 'Bride' }}</span> Only
+                            </option>
+                            <option value="groom" {{ 'selected' if setting and setting.message_sender == 'groom' else '' }}>
+                                <span id="sender_groom_text">{{ setting.groom_name or 'Groom' }}</span> Only
+                            </option>
+                        </select>
+                        <p class="mt-1 text-sm text-gray-500">
+                            Choose who is sending the address request messages
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex justify-end">
+            <button type="submit" 
+                    class="bg-primary text-white px-6 py-2 rounded-md hover:bg-primary/90 transition-colors">
+                Save Settings
+            </button>
+        </div>
+    </form>
+
+    <div class="bg-blue-50 p-4 rounded-md border border-blue-200">
+        <h3 class="text-sm font-medium text-blue-900 mb-2">Expected CSV Format</h3>
+        <p class="text-sm text-blue-700 mb-2">Your CSV file should have these columns (case-insensitive):</p>
+        <ul class="text-sm text-blue-700 list-disc list-inside space-y-1">
+            <li><strong>Name</strong> (required) - Guest's full name</li>
+            <li><strong>Address</strong> (optional) - Mailing address if known</li>
+            <li><strong>Notes</strong> (optional) - Any additional notes</li>
+            <li><strong>facebook_profile</strong> (optional) - Facebook profile URL or username</li>
+        </ul>
+        <p class="text-sm text-blue-700 mt-2"><strong>Example:</strong> Export your guest list from Google Sheets as CSV, or create one in Excel and save as CSV.</p>
+    </div>
+</div>
+
+<script>
+// Update sender dropdown when bride/groom names change
+function updateSenderDropdown() {
+    const brideName = document.getElementById('bride_name').value || 'Bride';
+    const groomName = document.getElementById('groom_name').value || 'Groom';
+    
+    // Update the text in the dropdown options
+    document.getElementById('sender_both_text').textContent = `${groomName} & ${brideName}`;
+    document.getElementById('sender_bride_text').textContent = brideName;
+    document.getElementById('sender_groom_text').textContent = groomName;
+}
+
+// Add event listeners when page loads
+document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('bride_name').addEventListener('input', updateSenderDropdown);
+    document.getElementById('groom_name').addEventListener('input', updateSenderDropdown);
+    // Update once on load
+    updateSenderDropdown();
+});
+
+async function testOllamaConnection() {
+    const baseUrl = document.getElementById('ollama_base').value;
+    const statusDiv = document.getElementById('connection-status');
+    
+    if (!baseUrl) {
+        showStatus(statusDiv, 'Please enter an Ollama base URL', 'error');
+        return;
+    }
+    
+    showStatus(statusDiv, 'Testing connection...', 'info');
+    
+    try {
+        const response = await fetch('/test-ollama-connection', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ollama_base: baseUrl})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showStatus(statusDiv, data.message, 'success');
+            document.getElementById('model-management').classList.remove('hidden');
+        } else {
+            showStatus(statusDiv, data.message, 'error');
+        }
+    } catch (error) {
+        showStatus(statusDiv, 'Connection test failed', 'error');
+    }
+}
+
+async function loadAvailableModels() {
+    const baseUrl = document.getElementById('ollama_base').value;
+    const statusDiv = document.getElementById('model-status');
+    const modelSelect = document.getElementById('ollama_model');
+    
+    if (!baseUrl) {
+        showStatus(statusDiv, 'Please enter an Ollama base URL first', 'error');
+        return;
+    }
+    
+    showStatus(statusDiv, 'Loading available models...', 'info');
+    
+    try {
+        const response = await fetch('/get-ollama-models', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ollama_base: baseUrl})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success && data.models.length > 0) {
+            // Clear existing options
+            modelSelect.innerHTML = '';
+            
+            // Add models to select
+            data.models.forEach(model => {
+                const option = document.createElement('option');
+                option.value = model;
+                option.textContent = model;
+                modelSelect.appendChild(option);
+            });
+            
+            showStatus(statusDiv, `Found ${data.models.length} models`, 'success');
+        } else {
+            showStatus(statusDiv, data.message || 'No models found', 'error');
+        }
+    } catch (error) {
+        showStatus(statusDiv, 'Failed to load models', 'error');
+    }
+}
+
+async function testSelectedModel() {
+    const baseUrl = document.getElementById('ollama_base').value;
+    const modelName = document.getElementById('ollama_model').value;
+    const statusDiv = document.getElementById('model-status');
+    
+    if (!baseUrl || !modelName) {
+        showStatus(statusDiv, 'Please select a model and base URL', 'error');
+        return;
+    }
+    
+    showStatus(statusDiv, `Testing model "${modelName}"...`, 'info');
+    
+    try {
+        const response = await fetch('/test-ollama-model', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ollama_base: baseUrl, model_name: modelName})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showStatus(statusDiv, data.message, 'success');
+        } else {
+            showStatus(statusDiv, data.message, 'error');
+        }
+    } catch (error) {
+        showStatus(statusDiv, 'Model test failed', 'error');
+    }
+}
+
+async function pullNewModel() {
+    const baseUrl = document.getElementById('ollama_base').value;
+    const modelName = document.getElementById('new_model_name').value;
+    const statusDiv = document.getElementById('pull-status');
+    
+    if (!baseUrl || !modelName) {
+        showStatus(statusDiv, 'Please enter both base URL and model name', 'error');
+        return;
+    }
+    
+    showStatus(statusDiv, `Pulling model "${modelName}"... This may take several minutes.`, 'info');
+    
+    try {
+        const response = await fetch('/pull-ollama-model', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ollama_base: baseUrl, model_name: modelName})
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            showStatus(statusDiv, data.message, 'success');
+            // Reload available models
+            loadAvailableModels();
+        } else {
+            showStatus(statusDiv, data.message, 'error');
+        }
+    } catch (error) {
+        showStatus(statusDiv, 'Model pull failed', 'error');
+    }
+}
+
+async function uploadCSV(input) {
+    const file = input.files[0];
+    const statusDiv = document.getElementById('upload-status');
+    
+    if (!file) {
+        return;
+    }
+    
+    if (!file.name.toLowerCase().endsWith('.csv')) {
+        showStatus(statusDiv, 'Please select a CSV file', 'error');
+        return;
+    }
+    
+    showStatus(statusDiv, 'Uploading and processing CSV file...', 'info');
+    
+    const formData = new FormData();
+    formData.append('csv_file', file);
+    
+    try {
+        const response = await fetch('/upload-csv', {
+            method: 'POST',
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            let message = `Successfully uploaded and processed ${data.count} guests!\n\nDetected fields:\n`;
+            message += `• Name: ${data.detected_fields.name}\n`;
+            message += `• Address: ${data.detected_fields.address}\n`;
+            message += `• Notes: ${data.detected_fields.notes}\n`;
+            message += `• Facebook: ${data.detected_fields.facebook}`;
+            
+            showStatus(statusDiv, message, 'success');
+            // Clear the file input
+            input.value = '';
+        } else {
+            showStatus(statusDiv, data.error || 'Upload failed', 'error');
+        }
+    } catch (error) {
+        showStatus(statusDiv, 'Upload failed - please try again', 'error');
+    }
+}
+
+function showStatus(element, message, type) {
+    element.classList.remove('hidden');
+    element.className = element.className.replace(/bg-\w+-\d+/g, '').replace(/text-\w+-\d+/g, '');
+    
+    let bgClass, textClass;
+    switch (type) {
+        case 'success':
+            bgClass = 'bg-green-50 border-green-200';
+            textClass = 'text-green-700';
+            break;
+        case 'error':
+            bgClass = 'bg-red-50 border-red-200';
+            textClass = 'text-red-700';
+            break;
+        case 'info':
+            bgClass = 'bg-blue-50 border-blue-200';
+            textClass = 'text-blue-700';
+            break;
+    }
+    
+    element.className = `mt-2 p-3 rounded-md border ${bgClass} ${textClass}`;
+    element.style.whiteSpace = 'pre-line';
+    element.textContent = message;
+}
+</script>
+{% endblock %}

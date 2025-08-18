@@ -1,0 +1,251 @@
+name: Documentation
+
+on:
+  push:
+    branches: [ main ]
+    paths: 
+      - 'docs/**'
+      - 'README.md'
+      - '*.md'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'docs/**'
+      - 'README.md'
+      - '*.md'
+
+jobs:
+  lint-docs:
+    name: Lint Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install markdownlint
+      run: npm install -g markdownlint-cli
+      
+    - name: Lint Markdown files
+      run: |
+        markdownlint "**/*.md" --ignore node_modules --ignore .venv || true
+        
+    - name: Check for broken links
+      uses: lycheeverse/lychee-action@v1.8.0
+      with:
+        args: --verbose --no-progress '**/*.md' --exclude-path ./node_modules --exclude-path ./.venv
+        fail: false
+
+  validate-docs:
+    name: Validate Documentation Structure
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Check required documentation files
+      run: |
+        echo "Checking for required documentation files..."
+        
+        required_files=(
+          "README.md"
+          "LICENSE"
+          "SECURITY.md"
+          "docs/README.md"
+          "docs/overview.md"
+          "docs/installation.md"
+          "docs/user-guide.md"
+          "docs/api-reference.md"
+          "docs/configuration.md"
+        )
+        
+        missing_files=()
+        
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            missing_files+=("$file")
+          else
+            echo "✓ $file found"
+          fi
+        done
+        
+        if [ ${#missing_files[@]} -eq 0 ]; then
+          echo "All required documentation files are present"
+        else
+          echo "Missing required documentation files:"
+          printf '%s\n' "${missing_files[@]}"
+          exit 1
+        fi
+        
+    - name: Check README structure
+      run: |
+        echo "Validating README.md structure..."
+        
+        required_sections=(
+          "Quick Deploy"
+          "Table of Contents"
+          "Features"
+          "Installation"
+          "Usage"
+          "Configuration"
+          "License"
+        )
+        
+        for section in "${required_sections[@]}"; do
+          if grep -q "$section" README.md; then
+            echo "✓ $section section found"
+          else
+            echo "⚠ $section section missing or incorrectly formatted"
+          fi
+        done
+        
+    - name: Validate internal links
+      run: |
+        echo "Checking internal documentation links..."
+        
+        # Check that all docs/ references in README exist
+        grep -o 'docs/[^)]*\.md' README.md | while read -r link; do
+          if [ -f "$link" ]; then
+            echo "✓ $link exists"
+          else
+            echo "✗ $link referenced but not found"
+            exit 1
+          fi
+        done
+
+  generate-api-docs:
+    name: Generate API Documentation
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install flask-restx sphinx sphinx-rtd-theme
+        
+    - name: Generate OpenAPI spec
+      run: |
+        python -c "
+        from app import app
+        import json
+        
+        # Simple API documentation generator
+        routes = []
+        for rule in app.url_map.iter_rules():
+            routes.append({
+                'endpoint': rule.endpoint,
+                'methods': list(rule.methods),
+                'rule': str(rule)
+            })
+        
+        with open('api-spec.json', 'w') as f:
+            json.dump(routes, f, indent=2)
+        "
+        
+    - name: Upload API specification
+      uses: actions/upload-artifact@v3
+      with:
+        name: api-specification
+        path: api-spec.json
+
+  deploy-docs:
+    name: Deploy Documentation to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: [lint-docs, validate-docs]
+    if: github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+      
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+      
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install docsify-cli
+      run: npm install -g docsify-cli
+      
+    - name: Prepare documentation site
+      run: |
+        mkdir -p _site
+        
+        # Create index.html for Docsify
+        cat > _site/index.html << 'EOF'
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <title>Wedding Outreach Documentation</title>
+          <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1" />
+          <meta name="description" content="Wedding Outreach Documentation">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0">
+          <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/docsify@4/lib/themes/vue.css">
+        </head>
+        <body>
+          <div id="app"></div>
+          <script>
+            window.$docsify = {
+              name: 'Wedding Outreach',
+              repo: 'https://github.com/${{ github.repository }}',
+              homepage: 'README.md',
+              loadSidebar: true,
+              subMaxLevel: 3,
+              search: 'auto'
+            }
+          </script>
+          <script src="//cdn.jsdelivr.net/npm/docsify@4"></script>
+          <script src="//cdn.jsdelivr.net/npm/docsify/lib/plugins/search.min.js"></script>
+        </body>
+        </html>
+        EOF
+        
+        # Copy documentation files
+        cp README.md _site/
+        cp -r docs/* _site/
+        
+        # Create sidebar
+        cat > _site/_sidebar.md << 'EOF'
+        - [Home](/)
+        - [Overview](overview.md)
+        - [Installation](installation.md)
+        - [User Guide](user-guide.md)
+        - [API Reference](api-reference.md)
+        - [Configuration](configuration.md)
+        EOF
+        
+    - name: Setup Pages
+      uses: actions/configure-pages@v3
+      
+    - name: Upload artifact
+      uses: actions/upload-pages-artifact@v2
+      with:
+        path: '_site'
+        
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v2

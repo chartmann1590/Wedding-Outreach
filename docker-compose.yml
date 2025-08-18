@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  wedding-outreach:
+    build: .
+    ports:
+      - "5000:5000"
+    environment:
+      # - SECRET_KEY=your-secret-key-here
+      # - DATABASE_URL=sqlite:///wedding_outreach.db
+      # - FLASK_ENV=production
+      FLASK_APP: app.py
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
