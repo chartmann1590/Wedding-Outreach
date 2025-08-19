@@ -1,6 +1,6 @@
 # API Reference
 
-This document provides complete reference for the Wedding Outreach REST API.
+This document provides the REST API reference for the Wedding Outreach application.
 
 ## Base URL
 
@@ -10,552 +10,161 @@ http://localhost:5000
 
 ## Authentication
 
-Currently, the API does not require authentication. In production, consider implementing authentication mechanisms.
+Currently, no authentication is required for API endpoints.
 
-## Guest Management Endpoints
+## Endpoints
 
-### Get Dashboard Statistics
+### Dashboard
 
-```http
-GET /
-```
+**GET /**
+- Returns the main dashboard with guest statistics
+- Response: HTML page with guest counts and status overview
 
-Returns the main dashboard with guest statistics.
+### Settings
 
-**Response:**
-- HTML page with guest count statistics
+**GET /settings**
+- Display the settings configuration page
+- Response: HTML settings form
 
----
+**POST /settings**
+- Update application settings
+- Request: Form data with configuration values
+- Response: Redirect to settings page with status message
 
-### List Guests (Review Page)
+### Guest Management
 
-```http
-GET /review?status={status}&search={search}&page={page}
-```
+**GET /review**
+- List guests for review with optional filtering
+- Query Parameters:
+  - `status`: Filter by guest status (needs_address, requested, has_address, not_on_fb, all)
+  - `search`: Search by guest name
+  - `page`: Page number for pagination
+- Response: HTML page with guest list and messaging interface
 
-Get filtered list of guests for review and messaging.
+**GET /manage-guests**
+- Display editable guest management interface
+- Query Parameters: Same as /review
+- Response: HTML page with spreadsheet-style guest editor
 
-**Query Parameters:**
-- `status` (optional): Filter by guest status
-  - `needs_address` (default)
-  - `requested`  
-  - `has_address`
-  - `not_on_fb`
-  - `all`
-- `search` (optional): Search by guest name
-- `page` (optional): Page number for pagination (default: 1)
+**POST /update-guest/{guest_id}**
+- Update guest information via AJAX
+- Request Body: JSON with field and value
+- Response: JSON with success status and updated values
 
-**Response:**
-- HTML page with guest list and messaging interface
+**POST /add-guest**
+- Add a new guest to the database
+- Request Body: JSON with guest information
+- Response: JSON with success status and guest ID
 
----
+**POST /delete-guest/{guest_id}**
+- Delete a guest from the database
+- Response: JSON with success status and confirmation message
 
-### Manage Guests Interface
+**POST /mark/{guest_id}/{action}**
+- Mark guest with specific action (requested or not_on_fb)
+- Response: JSON with success status and new guest status
 
-```http
-GET /manage-guests?status={status}&search={search}&page={page}
-```
+### Data Import
 
-Get spreadsheet-style interface for guest management.
+**POST /upload-csv**
+- Upload and process CSV file with guest data
+- Request: Multipart form data with CSV file
+- Response: JSON with import results and detected field mappings
 
-**Query Parameters:**
-- Same as `/review` endpoint
+**POST /refresh-sheet**
+- Refresh guest data from Google Sheets
+- Response: JSON with sync results and guest count
 
-**Response:**
-- HTML page with editable guest spreadsheet
+### AI Integration
 
----
+**POST /test-ollama-connection**
+- Test connection to Ollama AI server
+- Request Body: JSON with Ollama base URL
+- Response: JSON with connection status
 
-### Update Guest Information
+**POST /get-ollama-models**
+- Get list of available AI models
+- Request Body: JSON with Ollama base URL
+- Response: JSON with available models list
 
-```http
-POST /update-guest/{guest_id}
-Content-Type: application/json
+**POST /test-ollama-model**
+- Test specific AI model functionality
+- Request Body: JSON with Ollama base URL and model name
+- Response: JSON with test results
 
-{
-  "field": "name|address|note|facebook_profile|status",
-  "value": "new_value"
-}
-```
+**POST /pull-ollama-model**
+- Download new AI model
+- Request Body: JSON with Ollama base URL and model name
+- Response: JSON with download status
 
-Update specific guest field via AJAX.
+## Response Formats
 
-**Path Parameters:**
-- `guest_id`: Integer guest ID
-
-**Request Body:**
-- `field`: Field to update (name, address, note, facebook_profile, status)
-- `value`: New field value
-
-**Response:**
+### Success Response
 ```json
 {
   "success": true,
-  "new_value": "updated_value",
-  "new_status": "guest_status"
+  "message": "Operation completed successfully",
+  "data": {}
 }
 ```
 
-**Error Response:**
-```json
-{
-  "success": false,
-  "error": "Invalid field"
-}
-```
-
----
-
-### Add New Guest
-
-```http
-POST /add-guest
-Content-Type: application/json
-
-{
-  "name": "Guest Name",
-  "address": "Optional address",
-  "note": "Optional note",
-  "facebook_profile": "Optional profile"
-}
-```
-
-Add a new guest to the database.
-
-**Request Body:**
-- `name` (required): Guest's full name
-- `address` (optional): Mailing address
-- `note` (optional): Additional notes
-- `facebook_profile` (optional): Facebook username or URL
-
-**Response:**
-```json
-{
-  "success": true,
-  "guest_id": 123,
-  "message": "Added Guest Name"
-}
-```
-
-**Error Response:**
-```json
-{
-  "success": false,
-  "error": "Guest already exists"
-}
-```
-
----
-
-### Delete Guest
-
-```http
-POST /delete-guest/{guest_id}
-```
-
-Delete a guest and all associated data.
-
-**Path Parameters:**
-- `guest_id`: Integer guest ID
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Deleted Guest Name"
-}
-```
-
----
-
-### Mark Guest Action
-
-```http
-POST /mark/{guest_id}/{action}
-```
-
-Mark guest with specific action (requested or not_on_fb).
-
-**Path Parameters:**
-- `guest_id`: Integer guest ID
-- `action`: Action type (`requested` or `not_on_fb`)
-
-**Response:**
-```json
-{
-  "success": true,
-  "new_status": "requested"
-}
-```
-
-**Error Response:**
-```json
-{
-  "error": "Invalid action"
-}
-```
-
-## Settings Management
-
-### Get/Update Settings
-
-```http
-GET /settings
-POST /settings
-```
-
-**GET Response:**
-- HTML settings page
-
-**POST Request Body (form data):**
-- `sheet_public_url`: Google Sheets public URL
-- `ollama_base`: Ollama server base URL
-- `ollama_model`: Ollama model name
-- `bride_name`: Bride's first name
-- `groom_name`: Groom's first name  
-- `wedding_date`: Wedding date
-- `message_sender`: Message sender preference (both/bride/groom)
-
-**POST Response:**
-- Redirect to settings page with success/error message
-
-## Data Import/Export
-
-### Upload CSV File
-
-```http
-POST /upload-csv
-Content-Type: multipart/form-data
-
-csv_file: <file>
-```
-
-Upload and process CSV file with guest data.
-
-**Request Body:**
-- `csv_file`: CSV file with guest information
-
-**Response:**
-```json
-{
-  "success": true,
-  "count": 150,
-  "detected_fields": {
-    "name": "Wedding Guest Name(s)",
-    "address": "Address",
-    "notes": "Notes",
-    "facebook": "Not found"
-  },
-  "message": "Successfully processed 150 guests"
-}
-```
-
-**Error Response:**
-```json
-{
-  "success": false,
-  "message": "Error processing CSV: Invalid format"
-}
-```
-
----
-
-### Refresh Sheet Data
-
-```http
-POST /refresh-sheet
-```
-
-Manually refresh guest data from Google Sheets.
-
-**Response:**
-```json
-{
-  "success": true,
-  "count": 150
-}
-```
-
-**Error Response:**
-```json
-{
-  "error": "No CSV URL configured"
-}
-```
-
-## Ollama Integration
-
-### Test Ollama Connection
-
-```http
-POST /test-ollama-connection
-Content-Type: application/json
-
-{
-  "ollama_base": "http://localhost:11434"
-}
-```
-
-Test connection to Ollama server.
-
-**Request Body:**
-- `ollama_base`: Ollama server base URL
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Connection successful"
-}
-```
-
-**Error Response:**
-```json
-{
-  "success": false,
-  "message": "Cannot connect to server - check URL and ensure Ollama is running"
-}
-```
-
----
-
-### Get Available Models
-
-```http
-POST /get-ollama-models
-Content-Type: application/json
-
-{
-  "ollama_base": "http://localhost:11434"
-}
-```
-
-Get list of available Ollama models.
-
-**Request Body:**
-- `ollama_base`: Ollama server base URL
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "",
-  "models": ["llama2", "codellama", "mistral"]
-}
-```
-
----
-
-### Test Model Generation
-
-```http
-POST /test-ollama-model
-Content-Type: application/json
-
-{
-  "ollama_base": "http://localhost:11434",
-  "ollama_model": "llama2"
-}
-```
-
-Test if a specific model can generate text.
-
-**Request Body:**
-- `ollama_base`: Ollama server base URL
-- `ollama_model`: Model name to test
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Model 'llama2' is working correctly"
-}
-```
-
----
-
-### Pull Ollama Model
-
-```http
-POST /pull-ollama-model
-Content-Type: application/json
-
-{
-  "ollama_base": "http://localhost:11434",
-  "model_name": "mistral"
-}
-```
-
-Download a new model from Ollama.
-
-**Request Body:**
-- `ollama_base`: Ollama server base URL
-- `model_name`: Name of model to download
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Successfully pulled model 'mistral'"
-}
-```
-
-## Error Handling
-
-### Standard Error Response Format
-
+### Error Response
 ```json
 {
   "success": false,
   "error": "Error description",
-  "details": "Additional error details (optional)"
+  "details": "Additional error information"
 }
 ```
 
-### Common HTTP Status Codes
+## Status Codes
 
-- `200 OK`: Successful request
+- `200 OK`: Request successful
 - `400 Bad Request`: Invalid request parameters
 - `404 Not Found`: Resource not found
 - `500 Internal Server Error`: Server error
 
-### Error Types
-
-**Validation Errors:**
-- Missing required fields
-- Invalid field values
-- Duplicate entries
-
-**Database Errors:**
-- Connection failures
-- Constraint violations
-- Transaction rollbacks
-
-**External Service Errors:**
-- Ollama connection failures
-- Google Sheets access errors
-- File upload errors
-
-## Rate Limiting
-
-Currently, no rate limiting is implemented. Consider implementing rate limiting in production environments.
-
 ## Data Models
 
 ### Guest Model
-```json
-{
-  "id": 1,
-  "name": "John Smith",
-  "address": "123 Main St, City, State 12345",
-  "note": "Messaged on 2024-01-15",
-  "facebook_profile": "john.smith",
-  "status": "requested",
-  "csv_row_number": 5,
-  "last_action_at": "2024-01-15T10:30:00Z",
-  "created_at": "2024-01-01T00:00:00Z"
-}
-```
+- `id`: Unique identifier
+- `name`: Guest full name
+- `address`: Mailing address
+- `note`: Additional notes
+- `facebook_profile`: Facebook profile information
+- `status`: Guest status (needs_address, requested, has_address, not_on_fb)
+- `csv_row_number`: Original CSV row reference
+- `created_at`: Creation timestamp
+- `last_action_at`: Last update timestamp
 
 ### Setting Model
-```json
-{
-  "id": 1,
-  "sheet_public_url": "https://docs.google.com/spreadsheets/d/...",
-  "spreadsheet_id": "abc123...",
-  "gid": "0",
-  "csv_url": "https://docs.google.com/spreadsheets/d/.../export?format=csv&gid=0",
-  "ollama_base": "http://localhost:11434",
-  "ollama_model": "llama2",
-  "bride_name": "Jane",
-  "groom_name": "John",
-  "wedding_date": "2024-06-15",
-  "message_sender": "both",
-  "csv_file_path": "/uploads/guests.csv",
-  "csv_name_field": "Wedding Guest Name(s)",
-  "csv_address_field": "Address",
-  "csv_notes_field": "Notes",
-  "csv_facebook_field": "facebook_profile",
-  "updated_at": "2024-01-15T10:30:00Z",
-  "created_at": "2024-01-01T00:00:00Z"
-}
+- `id`: Unique identifier
+- `sheet_public_url`: Google Sheets public URL
+- `ollama_base`: Ollama server base URL
+- `ollama_model`: Selected AI model
+- `bride_name`: Bride's name
+- `groom_name`: Groom's name
+- `wedding_date`: Wedding date
+- `message_sender`: Message sender preference
+
+## Examples
+
+### Add New Guest
+```bash
+curl -X POST http://localhost:5000/add-guest \
+  -H "Content-Type: application/json" \
+  -d '{"name": "John Doe", "address": "123 Main St", "note": "College friend"}'
 ```
 
-### ActionLog Model
-```json
-{
-  "id": 1,
-  "guest_id": 1,
-  "action": "update_address",
-  "meta": "Updated address to: 123 New St",
-  "timestamp": "2024-01-15T10:30:00Z"
-}
+### Update Guest Status
+```bash
+curl -X POST http://localhost:5000/mark/1/requested
 ```
 
-## SDK Examples
-
-### Python Example
-
-```python
-import requests
-
-# Add new guest
-response = requests.post('http://localhost:5000/add-guest', json={
-    'name': 'John Doe',
-    'address': '123 Main St',
-    'note': 'College friend'
-})
-
-if response.json()['success']:
-    guest_id = response.json()['guest_id']
-    print(f"Added guest with ID: {guest_id}")
-
-# Update guest
-requests.post(f'http://localhost:5000/update-guest/{guest_id}', json={
-    'field': 'status',
-    'value': 'requested'
-})
+### Upload CSV File
+```bash
+curl -X POST http://localhost:5000/upload-csv \
+  -F "csv_file=@guests.csv"
 ```
 
-### JavaScript Example
-
-```javascript
-// Add new guest
-const addGuest = async (guestData) => {
-  const response = await fetch('/add-guest', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(guestData)
-  });
-  
-  return await response.json();
-};
-
-// Update guest field
-const updateGuestField = async (guestId, field, value) => {
-  const response = await fetch(`/update-guest/${guestId}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ field, value })
-  });
-  
-  return await response.json();
-};
-```
-
-## Webhooks
-
-Currently, no webhook functionality is implemented. Consider adding webhooks for:
-- Guest status changes
-- New guest additions
-- Sheet synchronization events
-
-## Version
-
-API Version: 1.0  
-Last Updated: 2024-08-19  
-Status: Complete
+For more detailed information about each endpoint, see the application source code and inline documentation.
