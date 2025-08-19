@@ -6,16 +6,16 @@ A comprehensive Flask-based web application for managing wedding guest communica
 
 ### Docker (Recommended)
 ```bash
-git clone <your-repo-url>
-cd wedding_outreach
+git clone https://github.com/chartmann1590/Wedding-Outreach.git
+cd Wedding-Outreach
 docker-compose up -d
 # Access at http://localhost:5000
 ```
 
 ### Manual Setup
 ```bash
-git clone <your-repo-url>
-cd wedding_outreach
+git clone https://github.com/chartmann1590/Wedding-Outreach.git
+cd Wedding-Outreach
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
