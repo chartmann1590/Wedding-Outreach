@@ -78,18 +78,23 @@ def sanitize_filename(filename):
 safe_filename = f"{timestamp}_{sanitize_filename(file.filename)}"
 file_path = os.path.join(uploads_dir, safe_filename)
 
-# Additional security check to prevent path traversal
+# Additional security check to prevent path traversal using Path.relative_to()
 file_path = Path(file_path).resolve()
 uploads_dir_resolved = Path(uploads_dir).resolve()
-if not str(file_path).startswith(str(uploads_dir_resolved)):
+
+try:
+    # This will raise ValueError if file_path is not within uploads_dir_resolved
+    file_path.relative_to(uploads_dir_resolved)
+except ValueError:
     return jsonify({"success": False, "message": "Invalid file path"})
 ```
 
 **Benefits**:
 - Prevents path traversal attacks
 - Sanitizes dangerous characters
-- Double-checks final path location
+- Uses robust `Path.relative_to()` method for path containment validation
 - Limits filename length
+- More reliable than string-based path checking
 
 ## Bug 3: Input Validation and XSS Prevention
 
