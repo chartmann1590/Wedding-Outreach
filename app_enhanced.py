@@ -624,9 +624,9 @@ def update_csv_file(csv_file_path, guest_updates, field_mappings):
 
                     if status_note:
                         if current_notes:
-                            row[
-                                field_mappings["notes"]
-                            ] = f"{current_notes} | {status_note}"
+                            row[field_mappings["notes"]] = (
+                                f"{current_notes} | {status_note}"
+                            )
                         else:
                             row[field_mappings["notes"]] = status_note
                     else:

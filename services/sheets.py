@@ -212,9 +212,11 @@ def process_guest_data(df: pd.DataFrame) -> list:
             "name": name,
             "address": address,
             "note": notes,
-            "facebook_profile": str(row.get(facebook_col, "")).strip()
-            if facebook_col and pd.notna(row.get(facebook_col))
-            else "",
+            "facebook_profile": (
+                str(row.get(facebook_col, "")).strip()
+                if facebook_col and pd.notna(row.get(facebook_col))
+                else ""
+            ),
         }
 
         # Smart status detection based on notes and address
