@@ -112,34 +112,13 @@ jobs:
       
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
-      
-    - name: Log in to Docker Hub
-      if: github.event_name != 'pull_request'
-      uses: docker/login-action@v3
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-        
-    - name: Extract metadata
-      id: meta
-      uses: docker/metadata-action@v5
-      with:
-        images: ${{ secrets.DOCKER_USERNAME }}/wedding-outreach
-        tags: |
-          type=ref,event=branch
-          type=ref,event=pr
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=raw,value=latest,enable={{is_default_branch}}
           
-    - name: Build and push Docker image
+    - name: Build Docker image for testing
       uses: docker/build-push-action@v5
       with:
         context: .
-        platforms: linux/amd64,linux/arm64
-        push: ${{ github.event_name != 'pull_request' }}
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        load: true
+        tags: wedding-outreach:ci-test
         cache-from: type=gha
         cache-to: type=gha,mode=max
 
@@ -153,10 +132,13 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       
+    - name: Build Docker image for security scan
+      run: docker build -t wedding-outreach:security-scan .
+      
     - name: Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
       with:
-        image-ref: ${{ secrets.DOCKER_USERNAME }}/wedding-outreach:latest
+        image-ref: wedding-outreach:security-scan
         format: 'sarif'
         output: 'trivy-results.sarif'
         
