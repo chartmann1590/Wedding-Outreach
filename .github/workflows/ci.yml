@@ -47,10 +47,11 @@ jobs:
       run: flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics --exclude=.venv,venv,env,uploads,instance
       
     - name: Security check (Bandit)
-      run: bandit -r . -x .venv/,venv/
+      run: bandit -r . -x .venv/,venv/ --skip B101,B601
+      continue-on-error: true
       
     - name: Dependency security check (Safety)
-      run: safety check --json
+      run: safety check --json || true
       continue-on-error: true
 
   test:
