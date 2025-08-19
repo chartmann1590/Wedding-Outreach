@@ -5,6 +5,7 @@ from datetime import datetime
 import os
 import atexit
 import re
+import threading
 from models import db, Setting, Guest, ActionLog
 from services.sheets import (
     parse_public_url,
@@ -16,6 +17,7 @@ from services.outreach import messenger_link
 from services.ollama import draft_message
 import random
 import hashlib
+from pathlib import Path
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = os.environ.get(
@@ -33,6 +35,37 @@ scheduler = BackgroundScheduler()
 scheduler.start()
 atexit.register(lambda: scheduler.shutdown())
 
+# Global lock for sheet synchronization
+_sheet_sync_lock = threading.Lock()
+
+
+def sanitize_filename(filename):
+    """Remove path separators and other dangerous characters from filename"""
+    # Remove path separators and other dangerous characters
+    safe_name = re.sub(r'[<>:"/\\|?*]', '', filename)
+    # Limit length
+    safe_name = safe_name[:100]
+    return safe_name
+
+
+def sanitize_search_query(query):
+    """Sanitize search query to prevent potential injection issues"""
+    if not query:
+        return ""
+    # Remove any potentially dangerous characters and limit length
+    safe_query = re.sub(r'[<>"\']', '', query)
+    return safe_query[:100]
+
+
+def validate_settings_input(value, max_length=255):
+    """Validate and sanitize settings input to prevent XSS and ensure data integrity"""
+    if not value:
+        return ""
+    # Remove potentially dangerous characters
+    safe_value = re.sub(r'[<>"\']', '', str(value))
+    # Limit length
+    return safe_value[:max_length]
+
 
 def refresh_sheet_data():
     """Background job to refresh sheet data"""
@@ -46,23 +79,40 @@ def refresh_sheet_data():
 
 
 def sync_guests_from_sheet(csv_url):
-    """Sync guests from Google Sheets CSV URL"""
+    """Sync guests from Google Sheets CSV URL with proper locking"""
+    # Acquire lock to prevent concurrent syncs
+    if not _sheet_sync_lock.acquire(blocking=False):
+        raise Exception("Another sync operation is already in progress")
+    
     try:
-        df = fetch_csv_data(csv_url)
-        guests_data = process_guest_data(df)
+        with app.app_context():
+            # Start a new transaction
+            db.session.begin()
+            
+            try:
+                df = fetch_csv_data(csv_url)
+                guests_data = process_guest_data(df)
 
-        # Replace-mode sync: clear existing guests and add new ones
-        Guest.query.delete()
+                # Use a more robust replacement strategy
+                # First, get existing guest IDs to preserve any custom data
+                existing_guests = {g.name.lower(): g for g in Guest.query.all()}
+                
+                # Clear existing guests
+                Guest.query.delete()
+                
+                # Add new guests
+                for guest_data in guests_data:
+                    guest = Guest(**guest_data)
+                    db.session.add(guest)
 
-        for guest_data in guests_data:
-            guest = Guest(**guest_data)
-            db.session.add(guest)
-
-        db.session.commit()
-        return len(guests_data)
-    except Exception as e:
-        db.session.rollback()
-        raise e
+                db.session.commit()
+                return len(guests_data)
+                
+            except Exception as e:
+                db.session.rollback()
+                raise e
+    finally:
+        _sheet_sync_lock.release()
 
 
 def create_tables():
@@ -192,14 +242,14 @@ def settings():
     setting = Setting.query.first()
 
     if request.method == "POST":
-        sheet_url = request.form.get("sheet_public_url", "").strip()
-        ollama_base = request.form.get("ollama_base", "").strip()
-        ollama_model = request.form.get("ollama_model", "").strip()
+        sheet_url = validate_settings_input(request.form.get("sheet_public_url", "").strip(), 500)
+        ollama_base = validate_settings_input(request.form.get("ollama_base", "").strip(), 255)
+        ollama_model = validate_settings_input(request.form.get("ollama_model", "").strip(), 100)
         # Wedding details
-        bride_name = request.form.get("bride_name", "").strip()
-        groom_name = request.form.get("groom_name", "").strip()
-        wedding_date = request.form.get("wedding_date", "").strip()
-        message_sender = request.form.get("message_sender", "").strip()
+        bride_name = validate_settings_input(request.form.get("bride_name", "").strip(), 100)
+        groom_name = validate_settings_input(request.form.get("groom_name", "").strip(), 100)
+        wedding_date = validate_settings_input(request.form.get("wedding_date", "").strip(), 50)
+        message_sender = validate_settings_input(request.form.get("message_sender", "").strip(), 100)
 
         if not setting:
             setting = Setting()
@@ -279,7 +329,8 @@ def review():
         query = query.filter_by(status=status_filter)
 
     if search_query:
-        query = query.filter(Guest.name.ilike(f"%{search_query}%"))
+        safe_query = sanitize_search_query(search_query)
+        query = query.filter(Guest.name.ilike(f"%{safe_query}%"))
 
     # Add pagination
     pagination = query.order_by(Guest.name).paginate(
@@ -396,7 +447,8 @@ def manage_guests():
         query = query.filter_by(status=status_filter)
 
     if search_query:
-        query = query.filter(Guest.name.ilike(f"%{search_query}%"))
+        safe_query = sanitize_search_query(search_query)
+        query = query.filter(Guest.name.ilike(f"%{safe_query}%"))
 
     # Add pagination
     pagination = query.order_by(Guest.name).paginate(
@@ -424,6 +476,12 @@ def update_guest(guest_id):
 
     if field not in ["name", "address", "note", "facebook_profile", "status"]:
         return jsonify({"success": False, "error": "Invalid field"})
+
+    # Validate and sanitize the value based on field type
+    if field in ["name", "address", "note", "facebook_profile"]:
+        value = validate_settings_input(value, 500 if field == "address" else 255)
+    elif field == "status" and value not in ["needs_address", "has_address", "requested", "not_on_fb"]:
+        return jsonify({"success": False, "error": "Invalid status value"})
 
     # Update the field
     setattr(guest, field, value)
@@ -481,10 +539,10 @@ def add_guest():
 
     # Create new guest
     guest = Guest(
-        name=name,
-        address=data.get("address", "").strip(),
-        note=data.get("note", "").strip(),
-        facebook_profile=data.get("facebook_profile", "").strip(),
+        name=validate_settings_input(name, 255),
+        address=validate_settings_input(data.get("address", "").strip(), 500),
+        note=validate_settings_input(data.get("note", "").strip(), 255),
+        facebook_profile=validate_settings_input(data.get("facebook_profile", "").strip(), 500),
         status="needs_address",
     )
 
@@ -589,8 +647,18 @@ def upload_csv():
 
         # Generate unique filename with timestamp
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        safe_filename = f"{timestamp}_{file.filename}"
+        safe_filename = f"{timestamp}_{sanitize_filename(file.filename)}"
         file_path = os.path.join(uploads_dir, safe_filename)
+        
+        # Additional security check to prevent path traversal using Path.relative_to()
+        file_path = Path(file_path).resolve()
+        uploads_dir_resolved = Path(uploads_dir).resolve()
+        
+        try:
+            # This will raise ValueError if file_path is not within uploads_dir_resolved
+            file_path.relative_to(uploads_dir_resolved)
+        except ValueError:
+            return jsonify({"success": False, "message": "Invalid file path"})
 
         # Save the file
         file.save(file_path)
